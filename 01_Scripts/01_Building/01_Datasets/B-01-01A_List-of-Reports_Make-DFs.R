@@ -40,8 +40,11 @@ source(PATH_HEADER)
 # ------- Define path(s) -------
 # # 1. Path at which DFs will be stored
 FILE_TO.SAVE <- "MMN_List-of-Reports.RData"
-PATH_TO.SAVE <-
-  paste(PATH_DATA_ANALYSIS, "List-of-Reports", FILE_TO.SAVE, sep = "/")
+PATH_TO.SAVE <- paste(
+  PATH_DATA_ANALYSIS, "List-of-Reports",
+  append_date.to.filename(FILE_TO.SAVE),
+  sep = "/"
+)
 
 
 # ------- Define parameter(s) -------
@@ -119,8 +122,8 @@ get_dt.from.str <- function (str) {
 # ------------------------------------------------------------------------------
 # ------- Create a list of reports by using the USDA API -------
 # # 1. Download data
-rest_reports <- create_req(api_endpoint_base)
-resp_reports <- get_resp(rest_reports)
+rest_reports <- create_api.req(api_endpoint_report)
+resp_reports <- get_api.resp(rest_reports)
 list_reports <- resp_body_json(resp_reports)
 
 
