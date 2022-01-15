@@ -71,23 +71,28 @@ help_get.report_only.for.a.specific.year <- function (slug.name_str, year_) {
     result.length_modified <- result.length
   }
   if (result.length_modified == 0) {
-    # resp_to.return <- assign(name_resp, NA)
     resp_to.return <- NA
   } else {
-    # resp_to.return <- assign(name_resp, resp)
     resp_to.return <- resp
   }
   return (resp_to.return)
 }
 # # 1.1.2. Get API responses including reports for a range of years
 help_get.reports_in.resp <-
-  function (slug.name_str, year_begin_int, year_end_int) {
-    years <- c(year_begin_int:year_end_int)
-    reports_resp <- lapply(
-      years,
-      help_get.report_only.for.a.specific.year, slug.name_str = slug.name_str
-    )
-    names(reports_resp) <- as.character(years)
+  function (slug.name_str, year_begin_int = NULL, year_end_int = NULL) {
+    if (is.null(year_begin_int) & is.null(year_end_int)) {
+      reports_resp <-
+        get_api.resp_report(slug.name_str) %>%
+          list(.)
+      names(reports_resp) <- slug.name_str
+    } else {
+      years <- c(year_begin_int:year_end_int)
+      reports_resp <- lapply(
+        years,
+        help_get.report_only.for.a.specific.year, slug.name_str = slug.name_str
+      )
+      names(reports_resp) <- as.character(years)
+    }
     return (reports_resp)
 }
 # # 1.1.3. Covert API responses to TBLs
@@ -98,7 +103,9 @@ help_get.reports_in.tbl <- function (reports_in.resp) {
 
 # # 1.2. Download reports, and save it.
 save_reports <-
-  function (slug.name_str, year_begin_int, year_end_int, dir_str) {
+  function (
+    slug.name_str, year_begin_int = NULL, year_end_int = NULL, dir_str
+  ) {
     # ## Create objects that will be used later
     slug.name_modified <- toupper(slug.name_str) %>% str_replace(., "\\_", "-")
     path_resp <-
@@ -116,11 +123,16 @@ save_reports <-
       tolower(slug.name_str) %>%
         paste("tbl", ., sep = "_")
     # ## Get API responses, and transform their data type
-    assign(
-      obj.name_resp,
-      help_get.reports_in.resp(slug.name_str, year_begin_int, year_end_int)
-    )
-    assign(obj.name_tbl, get(obj.name_resp) %>% help_get.reports_in.tbl(.))
+    if (is.null(year_begin_int) & is.null(year_end_int)) {
+      assign(obj.name_resp, help_get.reports_in.resp(slug.name_str))
+      assign(obj.name_tbl, get(obj.name_resp) %>% help_get.reports_in.tbl(.))
+    } else {
+      assign(
+        obj.name_resp,
+        help_get.reports_in.resp(slug.name_str, year_begin_int, year_end_int)
+      )
+      assign(obj.name_tbl, get(obj.name_resp) %>% help_get.reports_in.tbl(.))
+    }
     # ## Save data
     save(list = obj.name_resp, file = path_resp)
     save(list = obj.name_tbl, file = path_tbl)
@@ -138,18 +150,27 @@ load_most.recent.data(DIR_TO.LOAD, FILE_TO.LOAD)
 # # 2. Download reports, and then save them.
 slug.names <- dt_report$slug_name
 timestamp()
-for (name in slug.names) {
+for (name in slug.names[71:628]) {
   save_reports(
     slug.name_str = name,
     year_begin_int = YEAR_BEGIN_REPORT.SEARCH,
     year_end_int = YEAR_END_REPORT.SEARCH,
     dir_str = DIR_TO.SAVE
   )
+  # ## Note:
+  # ## It seems that there is no benefit from getting reports year by year.
+  # save_reports(
+  #   slug.name_str = name,
+  #   year_begin_int = NULL,
+  #   year_end_int = NULL,
+  #   dir_str = DIR_TO.SAVE
+  # )
   cat(
     paste0(
       "Completed: ", which(slug.names == name),
       " out of ", length(slug.names), ".\n"
     )
   )
+  timestamp()
+  Sys.sleep(0.5)
 }
-timestamp()
