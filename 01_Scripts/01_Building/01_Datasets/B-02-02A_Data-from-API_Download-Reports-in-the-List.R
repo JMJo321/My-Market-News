@@ -150,7 +150,7 @@ load_most.recent.data(DIR_TO.LOAD, FILE_TO.LOAD)
 # # 2. Download reports, and then save them.
 slug.names <- dt_report$slug_name
 timestamp()
-for (name in slug.names[71:628]) {
+for (name in slug.names) {
   save_reports(
     slug.name_str = name,
     year_begin_int = YEAR_BEGIN_REPORT.SEARCH,
