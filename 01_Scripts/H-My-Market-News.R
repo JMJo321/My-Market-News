@@ -135,17 +135,21 @@ create_query_published.date <- function (published.year_int) {
   return (query)
 }
 # # 1.2.1.2. Create an API endpoint including a query
-create_api.endpoint <- function (slug.name_str, published.year_int) {
+create_api.endpoint <- function (slug.name_str, published.year_int = NULL) {
   api.endpoint <- paste(api_endpoint_report, slug.name_str, sep = "/")
-  api.endpoint_w.query <-
-    paste0(
-      api.endpoint,
-      create_query_published.date(published.year_int = published.year_int)
-    )
-  return (api.endpoint_w.query)
+  if (is.null(published.year_int)) {
+    api.endpoint_to.return <- api.endpoint
+  } else {
+    api.endpoint_to.return <-
+      paste0(
+        api.endpoint,
+        create_query_published.date(published.year_int = published.year_int)
+      )
+  }
+  return (api.endpoint_to.return)
 }
 # # 1.2.1.3. From creating an API endpoint to getting the response of it
-get_api.resp_report <- function (slug.name_str, published.year_int) {
+get_api.resp_report <- function (slug.name_str, published.year_int = NULL) {
   # ## Create an API endpoint
   api.endpoint <- create_api.endpoint(
     slug.name_str = slug.name_str,
@@ -175,13 +179,17 @@ get_api.resp_report <- function (slug.name_str, published.year_int) {
 
 # # 1.2.2. Transform a response into TBL
 transform_report_resp.to.tbl <- function (resp) {
-  tbl <-
-    httr2::resp_body_json(resp) %>%
-      .$results %>%  # These two steps are necessary to extract `results` only
-      jsonlite::toJSON(., auto_unbox = TRUE) %>%  # Generate a JSON string
-      jsonlite::fromJSON(.) %>%
-      as_tibble(.)
-  return (tbl)
+  if (is.na(resp[5])) {  # To avoid the case that the returned length > 1.
+    return (NA)
+  } else {
+    tbl <-
+      httr2::resp_body_json(resp) %>%
+        .$results %>%  # These two steps are necessary to extract `results` only
+        jsonlite::toJSON(., auto_unbox = TRUE) %>%  # Generate a JSON string
+        jsonlite::fromJSON(.) %>%
+        as_tibble(.)
+    return (tbl)
+  }
 }
 # # 1.2.3. Transform a TBL[DT] created from a API response into DT[TBL]
 # # 1.2.3.1. From TBL to DT
@@ -274,11 +282,30 @@ transform_tbl.to.dt <- function (tbl) {
 
 
 # # 2. Functions for miscellaneous tasks
-# # 2.1. Append date to a filename
+# # 2.1. Functions-related to loading/saving files
+# # 2.1.1. Append date to a filename
 append_date.to.filename <- function (filename.incl.ext_str) {
   date <- Sys.time() %>% format(., "%Y-%m-%d")
   filename.wo.ext <- str_replace(filename.incl.ext_str, "\\.[:alpha:]+$", "")
   ext <- str_extract(filename.incl.ext_str, "\\.[:alpha:]+$")
   filename_w.date <- paste0(paste(filename.wo.ext, date, sep = "_"), ext)
   return (filename_w.date)
+}
+# # 2.1.2. Load the file created most recently
+load_most.recent.data <- function (dir, filename_w.ext) {
+  files <- list.files(dir) # Make a list of files in the path
+  files_select <-
+    str_replace(filename_w.ext, "\\.[:alpha:]+$", "") %>%
+      str_detect(files, .) %>%
+      files[.]
+  filename_most.recent <-
+    str_extract(files_select, "(?<=\\_)[0-9]{4}.+[0-9]{2}") %>%
+      base::as.Date(., format = "%Y-%m-%d") %>%
+      sort(., decreasing = TRUE) %>%
+      .[1] %>%
+      as.character(.) %>%
+      str_detect(files_select, .) %>%
+      files_select[.]
+  path_most.recent <- paste(dir, filename_most.recent, sep = "/")
+  data <- load(path_most.recent, .GlobalEnv)
 }
