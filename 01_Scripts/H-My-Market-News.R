@@ -211,34 +211,38 @@ help_list.to.str <- function (list_) {
 # ------- #
 # ## For a TBL, from list to str
 help_convert_list.to.str.in.tbl <- function (col.name_str, tbl) {
-  select <- tbl[[col.name_str]]  # A list
+  selected <- tbl[[col.name_str]]  # A list
   str_from.list <-
-    lapply(select, help_list.to.str) %>%
+    help_list.to.str(selected) %>%
       unlist(.)
   tbl[[col.name_str]] <- str_from.list
   return (tbl)
 }
 # ------- #
-# ## Deal with column(s) including DF
-# TODO: Complete this part.
-# row.num_tbl <- nrow(tbl)
-# col <- cols_to.transform_df[1]
-# select <- tbl[[col]]  # A DF with no variables
-#
-# help_df.to.str <- function (df, row.num_tbl) {
-#   length_ <- length(df)
-#   if (length_ == 0) {  # No column implies no data.
-#     str_ <- rep(NA, times = row.num_tbl)
-#   } else {
-#     str_ <-
-#       as.list(df) %>%
-#         lapply(., str_c, collapse = reg.exp_c) %>%
-#         unlist(.)
-#   }
-#   return (str_)
-# }
-#
-# tbl[[col]] <- str_from.df
+# ## For a column, from DF to str
+help_df.to.str <- function (df) {  # A DF with no variables
+  length_ <- length(df)
+  row.num_tbl <- nrow(df)
+  if (length_ == 0) {  # No column implies no data.
+    str_ <- rep(NA, times = row.num_tbl)
+  } else {
+    str_ <-
+      as.list(df) %>%
+        lapply(., str_c, collapse = reg.exp_c) %>%
+        unlist(.)
+  }
+  return (str_)
+}
+# ------- #
+# ## For a TBL, from DF to str
+help_convert_df.to.str.in.tbl <- function (col.name_str, tbl) {
+  selected <- tbl[[col.name_str]]
+  str_from.df <-
+    help_df.to.str(selected) %>%
+      unlist(.)
+  tbl[[col.name_str]] <- str_from.df
+  return (tbl)
+}
 # ------- #
 # ## Make a function by using the helper functions
 transform_tbl.to.dt <- function (tbl) {
@@ -263,9 +267,11 @@ transform_tbl.to.dt <- function (tbl) {
     tbl <- help_convert_list.to.str.in.tbl(col, tbl)
   }
   # ## Conversion: DF to str
-  # TODO: Code for `cols_to.transform_df`
+  for (col in cols_to.transform_df) {
+    tbl <- help_convert_df.to.str.in.tbl(col, tbl)
+  }
   # ## Transform the TBL into a DT
-  dt <- setDT(tbl)
+  dt <- as.data.frame(tbl) %>% setDT(.)
   # ## Return the DT
   return (dt)
 }
