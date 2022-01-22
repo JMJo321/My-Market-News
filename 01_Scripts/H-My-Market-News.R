@@ -104,7 +104,7 @@ list_api.status.code <- list(
 )
 
 
-# # 2. (...)
+# # 2. W.R.T. regular expression
 reg.exp_c <- "|_|"
 reg.exp_split <- "\\|\\_\\|"
 
@@ -194,28 +194,35 @@ transform_report_resp.to.tbl <- function (resp) {
 # # 1.2.3. Transform a TBL[DT] created from a API response into DT[TBL]
 # # 1.2.3.1. From TBL to DT
 # ## Helper functions
-# ## For a column, from list to str
-help_list.to.str <- function (list_) {
-  length_ <- length(list_)
-  dtype <- class(list_)
+# ## For an element in a list
+help_element.to.str <- function (element) {
+  length_ <- length(element)
+  dtype <- class(element)
   if (length_ == 0) {
     str_ <- NA
+  } else if (length_ == 1) {
+    str_ <- as.character(element)
   } else {
     str_ <-
-      as.character(list_) %>%
+      as.character(element) %>%
         str_c(., collapse = reg.exp_c) %>%
         paste(paste0("[", dtype, "]"), ., sep = reg.exp_c)
   }
   return (str_)
 }
+# ## For a column, from list to str
+help_list.to.str <- function (list_) {
+  vec <-
+    lapply(list_, help_element.to.str) %>%
+      unlist(.)
+  return (vec)
+}
 # ------- #
 # ## For a TBL, from list to str
 help_convert_list.to.str.in.tbl <- function (col.name_str, tbl) {
   selected <- tbl[[col.name_str]]  # A list
-  str_from.list <-
-    help_list.to.str(selected) %>%
-      unlist(.)
-  tbl[[col.name_str]] <- str_from.list
+  vec_from.list <- help_list.to.str(selected)
+  tbl[[col.name_str]] <- vec_from.list
   return (tbl)
 }
 # ------- #
