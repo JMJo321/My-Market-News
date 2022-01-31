@@ -11,6 +11,7 @@
 # ------------------------------------------------------------------------------
 # Load required libraries
 # ------------------------------------------------------------------------------
+library(openxlsx)
 library(tidyverse)
 library(data.table)
 
@@ -63,18 +64,12 @@ PATH_TO.SAVE_REPORTS <- paste(
 )
 
 # # 2.2. Path for summary data
-# # 2.2.1. Detailed Data
-FILE_TO.SAVE_SUMMARY_DETAIL <- "MMN_Summary-of-Reports_Detail.csv"
-PATH_TO.SAVE_SUMMARY_DETAIL <- paste(
+SHEET.NAME_DETAIL <- "DETAIL"
+SHEET.NAME_VAR <- "VARIABLES"
+FILE_TO.SAVE_SUMMARY <- "MMN_Summary-of-Reports.xlsx"
+PATH_TO.SAVE_SUMMARY <- paste(
   DIR_TO.SAVE_REPORTS,
-  append_date.to.filename(FILE_TO.SAVE_SUMMARY_DETAIL),
-  sep = "/"
-)
-# # 2.2.2. Variable Names
-FILE_TO.SAVE_SUMMARY_VAR <- "MMN_Summary-of-Reports_Variable-Names.csv"
-PATH_TO.SAVE_SUMMARY_VAR <- paste(
-  DIR_TO.SAVE_REPORTS,
-  append_date.to.filename(FILE_TO.SAVE_SUMMARY_VAR),
+  append_date.to.filename(FILE_TO.SAVE_SUMMARY),
   sep = "/"
 )
 
@@ -86,7 +81,7 @@ PATH_TO.SAVE_SUMMARY_VAR <- paste(
 # ------- Define function(s) -------
 # # 1. To load TBLs, and then convert them into DTs
 load_report.data <- function (slug.name) {
-  # ## Load a .RData file
+  # ## Load a .RData file that includes TBLs for the given `slug_name`
   obj.name <-
     tolower(slug.name) %>%
       paste0("tbl_", .)
@@ -110,7 +105,13 @@ load_report.data <- function (slug.name) {
       as.vector(., mode = "logical")
   # ## Create a combined DT
   dt <- rbindlist(list_[select])
-  return (dt)
+  # ## Modify the DT created
+  dt_modified <- dt[, .N, by = names(dt)][, N := NULL]
+  # ## Note:
+  # ## There are duplicated observations.
+  # ## (e.g., for `MD_DA840`, observations with `report_date` == "12/29/1997")
+  # ## Return the modified DT
+  return (dt_modified)
 }
 
 
@@ -199,6 +200,85 @@ create_dt_summary <- function (slug.name) {
   dt[, (cols_to.extract_not.exist) := NA]
   setcolorder(dt, c("slug_name", cols_to.extract))
   return (dt)
+}
+
+
+# # 5. To create a DT that includes information about publication frequency
+# ## Note:
+# ## 1) The variable `report_date` means the date for which a report includes
+# ## price- or quantity-related information.
+# ## 2) The variable `published_date` means the date on which a report is
+# ## published. Note that for a report, the date is the most recent pulished
+# ## date. Therefore, if a correction is released, then `published_date`
+# ## does not include the date on which the report is publicated initially.
+# ## 3) `report_date` <= `published_date` because corrected reports can be
+# ## released (e.g., For `AMS_1235`, corrected data for 2018-01-13 is released
+# ## on 2021-12-08.).
+get_publication.info <- function (dt) {
+  dt_to.return <- setDT(NULL)
+  if (dt[, .N] == 0) { # For reports with no data
+    return (dt_to.return)
+    break
+  }
+
+  names_ <- names(dt)
+  if ("report_date" %in% names_) {
+    col <- "report_date"
+    select <- c("slug_name", col)
+  } else {
+    col <- "published_date"
+    select <- c("slug_name", col)
+  }
+  # ## Note:
+  # ## Several reports do not include column `report_date`. For those reports,
+  # ## use `published_date`.
+
+  dt_selected <- dt[, .SD, .SDcols = select]
+  setnames(dt_selected, old = col, new = "report_date")
+  dt_selected[
+    ,
+    report_date :=
+      str_extract(report_date, "[0-9]{2}/[0-9]{2}/[0-9]{4}") %>%
+        as.Date(., format = "%m/%d/%Y")
+  ] %>%
+    .[, .N, keyby = .(slug_name, report_date)] %>%
+    .[, N := NULL]
+  dt_selected[, report_year.month := zoo::as.yearmon(report_date)]
+  dt_selected[, report_year := year(report_date)]
+
+  slug.names <- dt_selected[, .N, by = .(slug_name)]$slug_name
+  for (sn in slug.names) {
+    year.months <- dt_selected[
+      slug_name == sn, .N, keyby = .(report_year.month)
+    ]$report_year.month
+    year.month_first <- year.months[1]
+    year.month_last <- year.months[length(year.months)]
+    N_year.month <-
+      dt_selected[slug_name == sn, .N, by = .(report_year.month)][, .N]
+    avg.pub.num_per.year.month <-
+      dt_selected[
+        slug_name == sn,
+        .N,
+        by = .(report_date, report_year.month)
+      ] %>%
+        .[, .N, by = .(report_year.month)] %>%
+        .$N %>%
+        sum(.) / N_year.month
+
+    tmp_dt <- data.table(
+      tmp_slug.name = sn,
+      report_year.month_first = year.month_first,
+      report_year.month_last = year.month_last,
+      publication.number_per.month =
+        round(avg.pub.num_per.year.month, digits = 1)
+    )
+    tmp_dt[
+      ,
+      frequency_days := floor((365 / 12) / avg.pub.num_per.year.month)
+    ]
+    dt_to.return <- rbind(dt_to.return, tmp_dt)
+  }
+  return (dt_to.return)
 }
 
 
@@ -352,14 +432,23 @@ length(vars_renamed)
 # dt_var_renamed[get(str_test) == T, .(slug_name)]
 
 cols_to.extract <- c(
-  "category", "class", "commodity", "crop", "community", "grade", "group",
-  "market_type", "market_type_category", "office_name", "origin", "package",
-  "region", "sale_type"
+  "category", "class", "commodity", "crop", "community",
+  "grade", "group",
+  "market_type", "market_type_category", "market_location_name",
+  "office_name", "origin",
+  "package",
+  "region", "report_title",
+  "sale_type"
 )
 cols_to.add <- c(
-  "avg_price", "price_max", "price_min",
-  "avg_length", "avg_weight", "bale_count",
-  "crop_year"
+  "avg_price", "avg_price_min", "avg_price_max", "avg_price_weekly",
+  "avg_price_monthly", "avg_price_yearly",
+  "price_max", "price_min",
+  "close_price",
+  "mostly_low_price", "mostly_high_price",
+  "avg_weight",  # Cattle
+  "avg_length", "bale_count", "crop_year", "nass_acres_planted_total", # Cotton
+  "volume" # Egg
 )
 
 
@@ -369,9 +458,24 @@ dt_summary <-
     rbindlist(.)
 
 # # 2.1. Add columns
+# # 2.1.1. Columns selected from `dt_var_renamed`
 dt_summary_appended <- merge(
   x = dt_summary,
   y = dt_var_renamed[, .SD, .SDcols = c("slug_name", cols_to.add)],
+  by = "slug_name",
+  all.x = TRUE
+)
+# # 2.1.2. Columns showing information about publication frequency
+# # 2.1.2.1. Create DT including info. about publication frequency
+dt_frequency <-
+  lapply(dts_report_renamed, get_publication.info) %>%
+    rbindlist(., idcol = "slug_name")
+dt_frequency[slug_name != tmp_slug.name, slug_name := tmp_slug.name]
+dt_frequency[, tmp_slug.name := NULL]
+# # 2.1.2.2. Add columns
+dt_summary_appended <- merge(
+  x = dt_summary_appended,
+  y = dt_frequency,
   by = "slug_name",
   all.x = TRUE
 )
@@ -382,11 +486,26 @@ dt_summary_appended <- merge(
 # ------------------------------------------------------------------------------
 # ------- Export DTs -------
 # # 1. Export the DT including reports in .RData format
-save(dts_report_renamed, file = PATH_TO.SAVE_REPORTS)
+save(
+  dts_report_renamed, dt_summary_appended, dt_var_renamed,
+  file = PATH_TO.SAVE_REPORTS
+)
 
-# # 2. Export the DT including summary information in .CSV format
-# # 2.1. Detailed data
-fwrite(dt_summary_appended, file = PATH_TO.SAVE_SUMMARY_DETAIL)
+# # 2. Export the DT including summary information in .xlsx format
+# # 2.1. Create a Workbook object
+# # 2.1.1. Create a Workbook object
+wb <- createWorkbook()
+# # 2.1.2. Add sheets
+# # 2.1.2.1. For detailed information
+addWorksheet(wb, SHEET.NAME_DETAIL)
+writeDataTable(wb, sheet = SHEET.NAME_DETAIL, x = dt_summary_appended)
+# # 2.1.2.2. For variable names
+addWorksheet(wb, SHEET.NAME_VAR)
+writeDataTable(wb, sheet = SHEET.NAME_VAR, x = dt_var_renamed)
 
-# # 2.2. Variable names
-fwrite(dt_var_renamed, file = PATH_TO.SAVE_SUMMARY_VAR)
+# # 2.2. Save the Workbook in .xlsx format
+stopifnot(
+  saveWorkbook(
+    wb, file = PATH_TO.SAVE_SUMMARY, overwrite = TRUE, returnValue = TRUE
+  )
+)
