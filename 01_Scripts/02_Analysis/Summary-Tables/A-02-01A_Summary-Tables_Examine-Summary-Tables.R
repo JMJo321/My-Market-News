@@ -331,7 +331,7 @@ cattle_summary_market.type <- dt_summary_appended[
 ]$market_type
 cattle_summary_market.type <-
   cattle_summary_market.type[!is.na(cattle_summary_market.type)]
-cattle_summary_market.type.category <- "Auction"
+cattle_summary_market.type.category <- "Summary"
 cattle_summary_office.name <- dt_summary_appended[
   eval(parse(text = condition_cattle_summary)), .N, keyby = .(office_name)
 ]$office_name
@@ -369,7 +369,7 @@ bold(ht_cattle_summary)[1,] <- TRUE
 align(ht_cattle_summary)[1,] <- "center"
 col_width(ht_cattle_summary)[c(1,3)] <- 10
 col_width(ht_cattle_summary)[c(2, 4, 5)] <- 30
-col_width(ht_cattle_summary)[6] <- 45
+col_width(ht_cattle_summary)[6] <- 55
 col_width(ht_cattle_summary)[7] <- 15
 top_border(ht_cattle_summary)[1,] <- brdr(thickness = 1)
 bottom_border(ht_cattle_summary)[c(1,30),] <- brdr(thickness = 1)
