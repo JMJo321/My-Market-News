@@ -207,11 +207,11 @@ create_dt_summary <- function (slug.name) {
 # ## Note:
 # ## 1) The variable `report_date` means the date for which a report includes
 # ## price- or quantity-related information.
-# ## 2) The variable `published_date` means the date on which a report is
+# ## 2) The variable `published_datetime` means the date on which a report is
 # ## published. Note that for a report, the date is the most recent pulished
-# ## date. Therefore, if a correction is released, then `published_date`
+# ## date. Therefore, if a correction is released, then `published_datetime`
 # ## does not include the date on which the report is publicated initially.
-# ## 3) `report_date` <= `published_date` because corrected reports can be
+# ## 3) `report_date` <= `published_datetime` because corrected reports can be
 # ## released (e.g., For `AMS_1235`, corrected data for 2018-01-13 is released
 # ## on 2021-12-08.).
 get_publication.info <- function (dt) {
@@ -226,12 +226,12 @@ get_publication.info <- function (dt) {
     col <- "report_date"
     select <- c("slug_name", col)
   } else {
-    col <- "published_date"
+    col <- "published_datetime"
     select <- c("slug_name", col)
   }
   # ## Note:
   # ## Several reports do not include column `report_date`. For those reports,
-  # ## use `published_date`.
+  # ## use `published_datetime`.
 
   dt_selected <- dt[, .SD, .SDcols = select]
   setnames(dt_selected, old = col, new = "report_date")
