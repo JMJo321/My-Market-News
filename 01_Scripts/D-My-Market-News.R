@@ -96,6 +96,7 @@ list_change.var.names <- list(
   predominateleaf = "predominate_leaf",
   predominateleafpct = "predominate_leaf_pct",
   `price_change (%)` = "price_change_pct",
+  published_date = "published_datetime",
   startdate = "begin_date",
   tenderable_percent = "tenderable_pct",
   `weekly av` = "avg_price_weekly",
