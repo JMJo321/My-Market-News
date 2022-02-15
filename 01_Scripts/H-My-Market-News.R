@@ -322,3 +322,20 @@ load_most.recent.data <- function (dir, filename_w.ext) {
   path_most.recent <- paste(dir, filename_most.recent, sep = "/")
   data <- load(path_most.recent, .GlobalEnv)
 }
+
+# # 2.2. Function for exporting a figure in PNG format
+export_figure.in.png <- function (
+  ggplot.obj, filename_str,
+  width_numeric = 20, height_numeric = 10, units_str = "cm", dpi_int = 320
+) {
+  ggsave(
+    plot = ggplot.obj,
+    filename = filename_str,
+    dpi = dpi_int,
+    width = width_numeric,
+    height = height_numeric,
+    units = units_str,
+    device = "png",
+    limitsize = FALSE
+  )
+}
