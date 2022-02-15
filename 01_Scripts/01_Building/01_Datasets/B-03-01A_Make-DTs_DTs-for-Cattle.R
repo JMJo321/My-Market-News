@@ -173,19 +173,27 @@ dt_cattle[, published_date := as.Date(published_datetime)]
 
 # # 4. Change the order of columns
 col.orders <- c(
+  # ## Report-related
   "slug_id", "slug_name", "report_title",
   "published_datetime", "published_date",
   "report_date", "report_begin_date", "report_end_date", "final_ind",
-  "market_type", "market_type_category",
+  # ## Market-related
+  "market_type_category", "market_type",
   "market_location_name", "market_location_city", "market_location_state",
   "office_code", "office_name", "office_city", "office_state",
-  "group", "category", "class", "commodity", "freight",
+  # ## Commodity-related
+  "group", "category", "class", "commodity",
+  # ## Summary-related
   "receipts", "receipts_week_ago", "receipts_year_ago",
-  "frame", "muscle_grade", "offspring_weight_est",
-  "quality_grade_name", "yield_grade", "price_unit", "weight_collect",
-  "age", "pregnancy_stage", "head_count",
+  # ## Characteristic-related
+  "age", "lot_desc",
+  "frame", "muscle_grade", "quality_grade_name", "yield_grade", "dressing",
+  "pregnancy_stage", "offspring_weight_est",
+  # ## Weight-related
+  "head_count", "weight_collect",
   "avg_weight_min", "avg_weight_max", "avg_weight",
-  "avg_price_min", "avg_price_max", "avg_price", "dressing", "lot_desc"
+  # ## Price-related
+  "freight", "price_unit", "avg_price_min", "avg_price_max", "avg_price"
 )
 setcolorder(dt_cattle, col.orders)
 
