@@ -28,7 +28,7 @@ setwd(PATH_PROJ)
 
 
 # ------- Run the header script -------
-PATH_HEADER <- paste0("05_Code/H-", PROJ.NAME, ".R")
+PATH_HEADER <- paste0("01_Scripts/H-", PROJ.NAME, ".R")
 source(PATH_HEADER)
 
 
