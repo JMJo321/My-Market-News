@@ -115,7 +115,6 @@ plot_sample <-
       color = get("age"), shape = get("pregnancy_stage")
     ) +
     geom_point() +
-    # geom_line() +
     scale_y_continuous(label = scales::comma) +
     labs(
       x = "", y = "Average Price\n", color = "Age", shape = "Pregnancy Stage"
@@ -123,10 +122,12 @@ plot_sample <-
     theme_linedraw()
 
 
-# # 2.
+# # 2. Find non-NA columns by category-class-commodity
 cols_by <- c(
-  "category", "class", "commodity", "frame",
-  "muscle_grade", "quality_grade_name", "lot_desc", "age", "pregnancy_stage",
-  "weight_collect", "offspring_weight_est", "yield_grade"
+  "category", "class", "commodity",
+  "frame", "muscle_grade", "quality_grade_name", "yield_grade", "dressing",
+  "pregnancy_stage", "offspring_weight_est",
+  "weight_collect", "price_unit"
 )
 dt_cattle[, .N, keyby = cols_by] %>% View(.)
+dt_cattle[category == "Cattle", .N, keyby = cols_by]
