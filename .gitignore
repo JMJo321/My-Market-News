@@ -1,12 +1,18 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-# Editor-based HTTP Client requests
-/httpRequests/
-# Datasource local storage ignored files
-/dataSources/
-/dataSources.local.xml
-# Zeppelin ignored files
-/ZeppelinRemoteNotebooks/
+# 1. Files related to Project Management
+# 1.1. System Files
+.DS_Store
 
+
+# 1.2. App-related Files
+# 1.2.1. RStudio
+.Rhistory
+.Rproj.user
+*.Rproj
+
+# 1.2.2. VS Code
 .idea
+
+
+# 2. Datasets
+# ## Note: Data files will be stored in Dropbox.
+**/*.RData
