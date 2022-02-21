@@ -328,7 +328,7 @@ export_figure.in.png <- function (
   ggplot.obj, filename_str,
   width_numeric = 20, height_numeric = 10, units_str = "cm", dpi_int = 320
 ) {
-  ggsave(
+  ggplot2::ggsave(
     plot = ggplot.obj,
     filename = filename_str,
     dpi = dpi_int,
@@ -338,4 +338,42 @@ export_figure.in.png <- function (
     device = "png",
     limitsize = FALSE
   )
+}
+
+# # 2.3. Functions for getting unique values in a variable
+# # 2.3.1. A helper function that drops column names containing NA
+help_drop.na.columns <- function (values_list) {
+  return (values_list[!is.na(values_list)])
+}
+# # 2.3.2. Create a subsetting condition in character type by using
+# #        column names from the helper function above
+get_subset.condition_in.str <- function (values_list) {
+  list_values_na.drop <- help_drop.na.columns(values_list)
+  columns <- names(list_values_na.drop)
+  values <- unlist(list_values_na.drop)
+  tmp_str <- NULL
+  for (col in columns) {
+    if (is.na(values[col])) {
+      tmp_str <- c(tmp_str, paste0("is.na(", col, ") == TRUE"))
+    } else {
+      tmp_str <- c(tmp_str, paste0(col, " == '", values[col], "'"))
+    }
+  }
+  subset.condition <- str_c(tmp_str, collapse = " & ")
+  return (subset.condition)
+}
+# # 2.3.3. Create a vector that include unique values in the target column
+get_unique.values.in.target.column <-
+  function (values_list, target.column_str) {
+    subset.condition <-
+      get_subset.condition_in.str(
+        values_list[!names(values_list) %in% target.column_str]
+      )
+    unique.values <- dt_cattle[
+      eval(parse(text = subset.condition)), .N, keyby = target.column_str
+    ][
+      , .SD, .SDcols = target.column_str
+    ] %>%
+      unlist(., use.names = FALSE)
+    return (unique.values)
 }
