@@ -167,8 +167,11 @@ for (col in cols_avg.weight) {
 
 
 # # 3. Add column(s)
-# # 3.1. Add a column incl. the publication date
+# # 3.1. Add columns incl. date or year-month
+# # 3.1.1. For publication date
 dt_cattle[, published_date := as.Date(published_datetime)]
+# # 3.1.2. For report year-month
+dt_cattle[, report_yearmonth := as.yearmon(report_date)]
 
 
 # # 4. Change the order of columns
@@ -176,7 +179,8 @@ col.orders <- c(
   # ## Report-related
   "slug_id", "slug_name", "report_title",
   "published_datetime", "published_date",
-  "report_date", "report_begin_date", "report_end_date", "final_ind",
+  "report_yearmonth", "report_date", "report_begin_date", "report_end_date",
+  "final_ind",
   # ## Market-related
   "market_type_category", "market_type",
   "market_location_name", "market_location_city", "market_location_state",
