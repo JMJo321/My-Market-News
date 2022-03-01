@@ -16,3 +16,8 @@
 # 2. Datasets
 # ## Note: Data files will be stored in Dropbox.
 **/*.RData
+
+
+# 3. Others
+# 3.1. Sample R Shiny apps
+**/Sample-Shiny-App
