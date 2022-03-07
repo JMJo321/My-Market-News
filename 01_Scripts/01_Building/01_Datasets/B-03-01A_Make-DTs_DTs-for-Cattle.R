@@ -12,6 +12,7 @@
 # Load required libraries
 # ------------------------------------------------------------------------------
 library(stringr)
+library(zoo)
 library(data.table)
 
 
@@ -172,6 +173,15 @@ for (col in cols_avg.weight) {
 dt_cattle[, published_date := as.Date(published_datetime)]
 # # 3.1.2. For report year-month
 dt_cattle[, report_yearmonth := as.yearmon(report_date)]
+# # 3.1.3. For report year
+dt_cattle[, report_year := year(report_date)]
+
+# # 3.2. Add column(s) incl. info. about market locations
+dt_cattle[
+  ,
+  market_location :=
+    paste(market_location_city, market_location_state, sep = ", ")
+]
 
 
 # # 4. Change the order of columns
@@ -179,11 +189,13 @@ col.orders <- c(
   # ## Report-related
   "slug_id", "slug_name", "report_title",
   "published_datetime", "published_date",
-  "report_yearmonth", "report_date", "report_begin_date", "report_end_date",
+  "report_year", "report_yearmonth", "report_date", "report_begin_date",
+  "report_end_date",
   "final_ind",
   # ## Market-related
   "market_type_category", "market_type",
   "market_location_name", "market_location_city", "market_location_state",
+  "market_location",
   "office_code", "office_name", "office_city", "office_state",
   # ## Commodity-related
   "group", "category", "class", "commodity",
