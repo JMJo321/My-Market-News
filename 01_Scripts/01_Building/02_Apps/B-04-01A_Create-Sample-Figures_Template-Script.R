@@ -86,11 +86,11 @@ select_commodity <- "Feeder Cattle"
 # # 1.1.1.3. About quality
 select_frame <- "Medium and Large"
 select_muscle.grade <- "1"
-select_quality.grade.name <- NA
-select_yield.grade <- NA
-select_dressing <- NA
-select_pregnancy.state <- NA
-select_offspring.weight.est <- NA
+select_quality.grade.name <- NULL
+select_yield.grade <- NULL
+select_dressing <- NULL
+select_pregnancy.stage <- NULL
+select_offspring.weight.est <- NULL
 # # 1.1.1.4. About market location
 select_market.location.state <- "FL"
 select_market.location.city <- "Arcadia"
@@ -121,7 +121,7 @@ list_select_base <- list(
   quality_grade_name = select_quality.grade.name,
   yield_grade = select_yield.grade,
   dressing = select_dressing,
-  pregnancy_state = select_pregnancy.state,
+  pregnancy_state = select_pregnancy.stage,
   offspring_weight_est = select_offspring.weight.est
 )
 list_select_market.location <- list(
@@ -178,6 +178,10 @@ plot_selected.weight.bracket_agg.info <-
     select_market.location
   )
 
+plot_selected.market.location
+plot_selected.weight.bracket
+plot_selected.weight.bracket_agg.info
+
 
 # ------- For commodity == "Slaughter Cattle" -------
 # # 1. Set options
@@ -195,7 +199,7 @@ select_muscle.grade <- NA
 select_quality.grade.name <- "Choice"
 select_yield.grade <- "2-3"
 select_dressing <- "Average"
-select_pregnancy.state <- NA
+select_pregnancy.stage <- NA
 select_offspring.weight.est <- NA
 # # 1.1.1.4. About market location
 select_market.location.state <- "PA"
@@ -227,7 +231,7 @@ list_select_base <- list(
   quality_grade_name = select_quality.grade.name,
   yield_grade = select_yield.grade,
   dressing = select_dressing,
-  pregnancy_state = select_pregnancy.state,
+  pregnancy_state = select_pregnancy.stage,
   offspring_weight_est = select_offspring.weight.est
 )
 list_select_market.location <- list(
@@ -283,3 +287,7 @@ plot_selected.weight.bracket_agg.info <-
     select_agg.qty, select_agg.price,
     select_market.location
   )
+
+plot_selected.market.location
+plot_selected.weight.bracket
+plot_selected.weight.bracket_agg.info
