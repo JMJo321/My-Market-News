@@ -45,7 +45,7 @@ source(PATH_HEADER)
 # ------- Define path(s) -------
 # # 1. Path(s) to load necessary script(s) and dataset(s)
 # # 1.1. Path for Report Data
-DIR_TO.LOAD_CATTLE <- paste(PATH_DATA_INTERMEDIATE, "MMN-API/Data", sep = "/")
+DIR_TO.LOAD_DATA <- paste(PATH_DATA_INTERMEDIATE, "MMN-API/Data", sep = "/")
 FILE_TO.LOAD_CATTLE <- "MMN_Data_Category-Cattle.RData"
 
 # # 1.2. Path for the script including default style
@@ -53,20 +53,15 @@ FILE_TO.LOAD_STYLE <- "default_style.R"
 PATH_TO.LOAD_STYLE <-
   paste(PATH_SCRIPTS_BUILDING_APPS, FILE_TO.LOAD_STYLE, sep = "/")
 
+# # 1.3. Path for the List of Quality Measures
+FILE_TO.LOAD_QUALITY.MEASURE <- "MMN_Data_List-of-Quality-Measures.RData"
+
 
 # ------- Define parameter(s) -------
-# TODO: Make a function that generates the list below
 # # 1. Lists about quality measures
 # # 1.1. List mapping a commodity to applicable quality measures
-list_quality.measures <- list(
-  Cattle = list(
-    Heifers = list(
-      `Feeder Cattle` = c("frame", "muscle_grade"),
-      `Slaughter Cattle` = c("quality_grade_name", "yield_grade", "dressing"),
-      `Feeder Dairy Calves` = "quality_grade_name"
-    )
-  )
-)
+# ## Note:
+# ## This list is loaded below.
 
 # # 1.2. List mapping an input ID to a label
 list_quality.measures_detail <- list(
@@ -147,8 +142,8 @@ get_condition_qaulity.measures <- function (quality.measures_) {
 # Load required dataset(s) and/or script(s)
 # ------------------------------------------------------------------------------
 # ------- Load dataset(s) -------
-load_most.recent.data(DIR_TO.LOAD_CATTLE, FILE_TO.LOAD_CATTLE)
-
+load_most.recent.data(DIR_TO.LOAD_DATA, FILE_TO.LOAD_CATTLE)
+load_most.recent.data(DIR_TO.LOAD_DATA, FILE_TO.LOAD_QUALITY.MEASURE)
 
 # ------- Load script(s) -------
 source(PATH_TO.LOAD_STYLE)
