@@ -45,8 +45,8 @@ source(PATH_HEADER)
 # ------- Define path(s) -------
 # # 1. Path(s) to load necessary script(s) and dataset(s)
 # # 1.1. Path for Report Data
-DIR_TO.LOAD_DATA <- paste(PATH_DATA_INTERMEDIATE, "MMN-API/Data", sep = "/")
-FILE_TO.LOAD_CATTLE <- "MMN_Data_Category-Cattle.RData"
+DIR_TO.LOAD_DATA_MMN <- paste(PATH_DATA_INTERMEDIATE, "MMN-API/Data", sep = "/")
+FILE_TO.LOAD_CATTLE <- "MMN_Data_Category-Cattle_For-Shiny-App.RData"
 
 # # 1.2. Path for the script including default style
 FILE_TO.LOAD_STYLE <- "default_style.R"
@@ -55,6 +55,10 @@ PATH_TO.LOAD_STYLE <-
 
 # # 1.3. Path for the List of Quality Measures
 FILE_TO.LOAD_QUALITY.MEASURE <- "MMN_Data_List-of-Quality-Measures.RData"
+
+# # 1.4. Path for the BLS PPI data
+DIR_TO.LOAD_DATA_PPI <- paste(PATH_DATA_INTERMEDIATE, "BLS", sep = "/")
+FILE_TO.LOAD_PPI <- "BLS_PPI.RDaata"
 
 
 # ------- Define parameter(s) -------
@@ -137,13 +141,31 @@ get_condition_qaulity.measures <- function (quality.measures_) {
   }
 }
 
+# # 2. Price-related function(s)
+# # 2.1. To convert prices into real terms
+get_real.price <- function (year.month_yearmon, price) {
+  converting.factor <-
+    dt_ppi[year.month == year.month_yearmon]$value /
+      dt_ppi[year.month == as.yearmon("Jan 2022", format = "%b %Y")]$value
+  adjusted.price <- round(price * converting.factor, 2)
+  return (adjusted.price)
+}
+
 
 # ------------------------------------------------------------------------------
 # Load required dataset(s) and/or script(s)
 # ------------------------------------------------------------------------------
 # ------- Load dataset(s) -------
-load_most.recent.data(DIR_TO.LOAD_DATA, FILE_TO.LOAD_CATTLE)
-load_most.recent.data(DIR_TO.LOAD_DATA, FILE_TO.LOAD_QUALITY.MEASURE)
+# # 1. Load DTs including cattle-related data
+# # 1.1. DT incl. MMN data for `category == "Cattle"`
+load_most.recent.data(DIR_TO.LOAD_DATA_MMN, FILE_TO.LOAD_CATTLE)
+
+# # 1.2. List incl. quality-measure-related info. for each product
+load_most.recent.data(DIR_TO.LOAD_DATA_MMN, FILE_TO.LOAD_QUALITY.MEASURE)
+
+# # 1.3. DT incl. BLS PPI
+load_most.recent.data(DIR_TO.LOAD_DATA_PPI, FILE_TO.LOAD_PPI)
+
 
 # ------- Load script(s) -------
 source(PATH_TO.LOAD_STYLE)
@@ -175,11 +197,20 @@ tabpanels <- tabPanel(
     uiOutput("ui_quality.measures_dressing"),
     uiOutput("ui_quality.measures_pregnancy.stage"),
     uiOutput("ui_quality.measures_offspring.weight.est"),
-    uiOutput("ui_load.data")
+    tags$hr(),
+    tags$h3("Price Unit"),
+    tags$h5(
+      "Data being displayed depend on your choice."
+    ),
+    uiOutput("ui_price.unit"),
+    tags$hr(),
+    uiOutput("ui_load.data"),
+    uiOutput("ui_observations")
   ),
   sidebarPanel(
     width = 6,
     tags$h3("Options For Plotting"),
+    uiOutput("ui_price.adjustment"),
     uiOutput("ui_interval.length"),
     uiOutput("ui_figure.type"),
     uiOutput("ui_data.level"),
@@ -191,12 +222,15 @@ tabpanels <- tabPanel(
     uiOutput("ui_time.period"),
     uiOutput("ui_qty"),
     uiOutput("ui_price"),
-    uiOutput("ui_test")
+    uiOutput("ui_test")  # This uiOutput is only for test purpose.
   ),
   mainPanel(
     plotlyOutput(outputId = "figure_price"),
     plotlyOutput(outputId = "figure_qty"),
     dataTableOutput(outputId = "table"),
+    tags$br(),
+    downloadButton(outputId = "download_table", style = "float:right"),
+    tags$br(),
     width = 12
   )
 )
@@ -443,6 +477,8 @@ server <- function (input, output, session) {
       get_condition_qaulity.measures(quality.measures()) %>%
         parse(text = .) %>%
         eval(.)
+    ][
+      price_unit %in% input$price.unit
     ]
   })
   # # 1.5.2. Create a DT including quantities and prices
@@ -561,7 +597,10 @@ server <- function (input, output, session) {
       "agg.price_avg_simple", "agg.price_avg_weighted",
       "price_avg_simple", "price_avg_weighted"
     )
-    if (!is.null(values$market.location_selected) & !is.null(input$data.level)) {
+    if (
+      !is.null(values$market.location_selected) &
+        !is.null(input$data.level)
+    ) {
       dt <- dt_base()[
         market_location %in% values$market.location_selected,
         .N,
@@ -592,7 +631,7 @@ server <- function (input, output, session) {
       # #        the column `variable`
       dt_melted[
         ,
-        category_upper := lapply(
+        category_data.type := lapply(
           .SD,
           function (x) {
             str_detect(x, "(qty)|(headcount)") %>%
@@ -633,16 +672,39 @@ server <- function (input, output, session) {
           report_date = dates.in.dt,
           brackets = brackets.in.dt,
           market_location = market.locations.in.dt,
-          category_upper = c("Quantity", "Price")
+          category_data.type = c("Quantity", "Price")
         ) %>%
           setDT(.)
       dt_merged <- merge(
         x = dt_to.merge,
         y = dt_subset,
-        by = c("report_date", "brackets", "market_location", "category_upper"),
+        by = c(
+          "report_date", "brackets", "market_location", "category_data.type"
+        ),
         all.x = TRUE
       )
       dt_merged[is.na(value), value := 0]
+      dt_merged[
+        category_data.type == "Price",
+        value_in.real :=
+          mapply(get_real.price, report_yearmonth, value) %>%
+            as.vector(., mode = "numeric")
+      ]
+    } else {
+      NULL
+    }
+  })
+  # # 1.5.4. DT for exporting data utilized to create plots
+  dt_for.download <- eventReactive(
+    c(
+      input$load.data,
+      dt_for.plot()
+    ), {
+    if (!is.null(dt_for.plot())) {
+      dt_for.plot()[
+        value != 0,
+        .(report_date, brackets, market_location, category_data.type, value)
+      ]
     } else {
       NULL
     }
@@ -654,6 +716,7 @@ server <- function (input, output, session) {
     c(
       input$load.data,
       input$figure.type,
+      input$data.level,
       input$qty,
       dt_for.plot()
     ), {
@@ -671,11 +734,14 @@ server <- function (input, output, session) {
         labs <- "Market\nLocations"
       }
 
-      if (input$qty %in% "Average Weights") {
+      if (
+        input$qty %in% "Average Weights" |
+          input$data.level %in% "Aggregated Data"
+      ) {
         ggplot.obj <-
           ggplot(
             data = dt_for.plot()[
-              category_upper == "Quantity" &
+              category_data.type == "Quantity" &
                 value != 0
             ]
           ) +
@@ -702,7 +768,7 @@ server <- function (input, output, session) {
             scale_color_brewer(palette = "Spectral") +
             labs(
               x = "",
-              y = "",
+              y = input$qty,
               color = labs
             ) +
             theme_minimal()
@@ -710,7 +776,7 @@ server <- function (input, output, session) {
         ggplot.obj <-
           ggplot(
             data = dt_for.plot()[
-              category_upper == "Quantity"
+              category_data.type == "Quantity"
             ]
           ) +
             geom_area(
@@ -721,7 +787,7 @@ server <- function (input, output, session) {
             scale_fill_brewer(palette = "Spectral") +
             labs(
               x = "",
-              y = "",
+              y = input$qty,
               fill = labs
             ) +
             theme_minimal()
@@ -736,6 +802,7 @@ server <- function (input, output, session) {
       input$load.data,
       input$figure.type,
       input$price,
+      input$price.adjustment,
       dt_for.plot()
     ), {
     if (!is.null(dt_for.plot()) & !is.null(input$price)) {
@@ -751,26 +818,31 @@ server <- function (input, output, session) {
         by_plot <- "market_location"
         labs <- "Market\nLocations"
       }
+      if (input$price.adjustment == TRUE) {
+        y_value <- "value_in.real"
+      } else {
+        y_value <- "value"
+      }
       ggplot.obj <-
         ggplot(
           data = dt_for.plot()[
-            category_upper == "Price" & !is.na(variable)
+            category_data.type == "Price" & !is.na(variable)
           ]
         ) +
           geom_point(
-            aes_string(x = "report_date", y = "value", group = by_plot),
+            aes_string(x = "report_date", y = y_value, group = by_plot),
             color = "black", alpha = 0.25, size = 1.3
           ) +
           geom_line(
-            aes_string(x = "report_date", y = "value", group = by_plot),
+            aes_string(x = "report_date", y = y_value, group = by_plot),
             color = "black", alpha = 0.25, lwd = 0.7
           ) +
           geom_line(
-            aes_string(x = "report_date", y = "value", color = by_plot),
+            aes_string(x = "report_date", y = y_value, color = by_plot),
             lwd = 0.3
           ) +
           geom_point(
-            aes_string(x = "report_date", y = "value", color = by_plot),
+            aes_string(x = "report_date", y = y_value, color = by_plot),
             size = 0.8
           ) +
           scale_x_date(date_labels = "%b. %Y") +
@@ -778,7 +850,7 @@ server <- function (input, output, session) {
           scale_color_brewer(palette = "Spectral") +
           labs(
             x = "",
-            y = "",
+            y = paste0("US$  (", input$price.unit, ")"),
             color = labs,
             subtitle = "Price"
           ) +
@@ -912,14 +984,41 @@ server <- function (input, output, session) {
   output$ui_load.data <- renderUI({
     actionButton(
       inputId = "load.data",
-      label = "Load Data",
+      label = "Press To Load Data",
       icon = icon(name = "database", lib = "font-awesome")
     )
   })
 
+  output$ui_price.unit <- renderUI({
+    selectInput(
+      inputId = "price.unit",
+      label = "Price Unit",
+      choices = c("Per Cwt", "Per Family", "Per Head")
+    )
+  })
 
-  # # 3. For Plotting Options
-  # # 3.1. For interval length for weight brackets
+
+  # # 3. For Price unit
+  output$ui_price.unit <- renderUI({
+    selectInput(
+      inputId = "price.unit",
+      label = "Price Unit",
+      choices = c("Per Cwt", "Per Family", "Per Head")
+    )
+  })
+
+
+  # # 4. For Plotting Options
+  # # 4.0. For price adjustment
+  output$ui_price.adjustment <- renderUI({
+    checkboxInput(
+      inputId = "price.adjustment",
+      label = "Adjust Prices",
+      value = FALSE
+    )
+  })
+
+  # # 4.1. For interval length for weight brackets
   output$ui_interval.length <- renderUI({
     selectInput(
       inputId = "interval.length",
@@ -929,7 +1028,7 @@ server <- function (input, output, session) {
     )
   })
 
-  # # 3.2. For figure type
+  # # 4.2. For figure type
   observeEvent(
     c(
       input$load.data,
@@ -948,7 +1047,7 @@ server <- function (input, output, session) {
     ignoreNULL = FALSE
   )
 
-  # # 3.3. For data level
+  # # 4.3. For data level
   observeEvent(
     c(
       input$load.data,
@@ -985,8 +1084,8 @@ server <- function (input, output, session) {
     ignoreNULL = FALSE
   )
 
-  # # 3.4. For market locations
-  # # 3.4.1. For state
+  # # 4.4. For market locations
+  # # 4.4.1. For state
   observeEvent(
     c(
       input$load.data,
@@ -1012,7 +1111,7 @@ server <- function (input, output, session) {
   },
     ignoreNULL = FALSE
   )
-  # # 3.4.2. For city
+  # # 4.4.2. For city
   observeEvent(
     c(
       input$load.data,
@@ -1038,12 +1137,12 @@ server <- function (input, output, session) {
   },
     ignoreNULL = FALSE
   )
-  # # 3.4.3. For market locations selected
+  # # 4.4.3. For market locations selected
   output$ui_add.market.location <- renderUI({
     actionButton(
       inputId = "add.market.location",
       label = "Add the Market Location",
-      icon = icon(name = "upload", lib = "font-awesome")
+      icon = icon(name = "download", lib = "font-awesome")
     )
   })
   observeEvent(
@@ -1081,7 +1180,7 @@ server <- function (input, output, session) {
   },
     ignoreInit = TRUE
   )
-  # # 3.4.4. For weight brackets
+  # # 4.4.4. For weight brackets
   observeEvent(
   c(
     input$load.data,
@@ -1122,7 +1221,7 @@ server <- function (input, output, session) {
       }
     })
   })
-  # # 3.4.5. For time period
+  # # 4.4.5. For time period
   observeEvent(
   choices_date(), {
     output$ui_time.period <- renderUI({
@@ -1143,7 +1242,7 @@ server <- function (input, output, session) {
       }
     })
   })
-  # # 3.4.6. For quantities
+  # # 4.4.6. For quantities
   observeEvent(
     c(
       input$figure.type,
@@ -1162,7 +1261,7 @@ server <- function (input, output, session) {
       }
     })
   })
-  # # 3.4.7. For prices
+  # # 4.4.7. For prices
   observeEvent(
     c(
       input$figure.type,
@@ -1195,20 +1294,60 @@ server <- function (input, output, session) {
     })
   })
 
+
+
+  observeEvent(
+    input$load.data, {
+      output$ui_observations <- renderUI({
+        if (dt_subset()[, .N] == 0) {
+          tags$div(
+            tags$br(),
+            tags$h4(
+              "Data for the quality measures you selected are NOT available.",
+              style = "text-align:left;color:red"
+            ),
+            tags$h4(
+              "Please choose other quality measures.",
+              style = "text-align:left;color:red"
+            )
+          )
+        } else {
+          NULL
+        }
+      })
+    }
+  )
+
   # output$ui_test <- renderUI({
   #   selectInput(
   #     inputId = "test",
   #     label = "Test",
-  #     choices = choices_date()
+  #     choices = dt_subset()[, .N]
   #   )
-  # })
+  # })  # This is just for test purpose.
 
 
   # ------- Create object(s) for output -------
   # 1. For Table(s)
-  output$table <- renderDataTable({
-    dt_for.plot()
-  })
+  # output$table <- renderDataTable({
+  #   if (!is.null(dt_for.plot())) {
+  #     dt_for.plot()
+  #     # dt_for.plot()[
+  #     #   value != 0,
+  #     #   .(report_date, brackets, market_location, category_data.type, value)
+  #     # ]
+  #   } else {
+  #     NULL
+  #   }
+  # })
+  output$download_table <- downloadHandler(
+    filename = function () {
+      "USDA-My-Market-News_Selected.csv"
+    },
+    content = function (file) {
+      write.csv(dt_for.download(), file, row.names = FALSE)
+    }
+  )
 
 
   # 2. For Figure(s)
