@@ -64,35 +64,45 @@ PATH_TO.SAVE_CATTLE <- paste(
 
 
 # ------------------------------------------------------------------------------
-# (...)
+# Subset the DT to create a DT for a R shiny app
 # ------------------------------------------------------------------------------
-# ------- (...) -------
+# ------- Load data required -------
 load_most.recent.data(DIR_TO.LOAD_CATTLE, FILE_TO.LOAD_CATTLE)
-
 dt_cattle_whole <- copy(dt_cattle)
 rm(list = "dt_cattle")
 
 
-
-# ------- (...) -------
+# ------- Modify the DT loaded -------
+# # 1. Create objects that will be used later
 cols_product <- c("category", "class", "commodity")
 cols_quality <- c(
   "frame", "muscle_grade", "quality_grade_name", "yield_grade", "dressing",
     "pregnancy_stage", "offspring_weight_est"
 )
-cols_report <- c("market_type_category", cols_product, cols_quality)
-cols_reports.in.a.location <- c(
-  cols_report, "months", "market_location", "price_unit"
+cols_month <- c("market_type_category", cols_product, cols_quality)
+cols_reports_to.subset <- c(
+  "brackets", "price_unit", "market_location", cols_month
 )
 
 
+# # 2. Add data fields that will be used to subset the DT
+dt_cattle_whole[
+  ,
+  brackets := cut(
+    avg_weight,
+    breaks = seq(0, 10^4, by = 50),
+    include.lowest = TRUE,
+    dig.lab = as.character(10^4) %>% str_length(.)
+  ),
+  by = eval(cols_reports_to.subset[-1])
+]
 dt_cattle_whole[
   ,
   `:=` (
     report_date_earliest = min(report_date, na.rm = TRUE),
     report_date_latest = max(report_date, na.rm = TRUE)
   ),
-  by = cols_report
+  by = cols_month
 ]
 dt_cattle_whole[
   ,
@@ -101,42 +111,39 @@ dt_cattle_whole[
       floor(.) %>%
       as.numeric(.)
 ]
-
-
 dt_cattle_whole[
   ,
   n_reports := .N,
-  by = cols_reports.in.a.location
+  by = cols_reports_to.subset
 ]
-
 dt_cattle_whole[
   ,
   n_per.month := floor(n_reports / months)
 ]
 
 
-
-
-
+# ------- Subset the DT, and then modify it -------
+# # 1. Subset the DT
 dt_cattle <- dt_cattle_whole[
   paste0("!is.na(", cols_quality, ")") %>% paste(., collapse = " | ") %>%
     parse(text = .) %>%
     eval(.)
   # To drop observations with no quality-measure-related information
 ][
-  n_per.month >= 1 & (12 <= months & !is.infinite(months))
+  12 <= months & !is.infinite(months)
+][
+  n_per.month >= 1
 ]
 
 
+# # 2. Modify the subsetted DT
+# # 2.1. Drop unnecessary data fields
+cols_to.drop <- c(
+  "report_date_earliest", "report_date_latest", "months", "n_reports",
+  "n_per.month", "brackets"
+)
+dt_cattle[, (cols_to.drop) := NULL]
 
-dt_cattle[
-  market_type_category == "Auction" &
-    category == "Cattle" &
-    class == "Heifers" &
-    commodity == "Feeder Cattle",
-  .N, keyby = .(market_location, price_unit)
-]
 
-
-# ------- (...) -------
+# ------- Save the DT created in .RData format -------
 save(dt_cattle, file = PATH_TO.SAVE_CATTLE)
