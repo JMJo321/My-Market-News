@@ -144,6 +144,22 @@ cols_to.drop <- c(
 )
 dt_cattle[, (cols_to.drop) := NULL]
 
+# # 2.2. Add data field(s)
+# # 2.2.1. Data field indicating the total weight
+dt_cattle[, total_weight_min := avg_weight_min * head_count]
+dt_cattle[, total_weight_max := avg_weight_max * head_count]
+dt_cattle[, total_weight := avg_weight * head_count]
+# # 2.2.2. Data field(s) regarding summary reports
+dt_cattle[
+  market_type_category == "Summary",
+  summary.report_pub.period := str_extract(report_title, "(Weekly)|(Daily)")
+]
+dt_cattle[
+  market_type_category == "Summary",
+  summary.report_location :=
+    str_replace(report_title, "(?>( Weekly)|( Daily)).+", "")
+]
+
 
 # ------- Save the DT created in .RData format -------
 save(dt_cattle, file = PATH_TO.SAVE_CATTLE)
